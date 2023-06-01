@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "gda-slot-finder"
+version = "0.1.0"
+description = ""
+authors = ["vtsiunchik <11209369+tslava@users.noreply.github.com>"]
+readme = "README.md"
+packages = [{include = "gda_slot_finder"}]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+requests = "^2.31.0"
+python-telegram-bot = "^20.3"
+gspread = "^5.9.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
