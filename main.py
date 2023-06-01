@@ -10,6 +10,7 @@ import gspread
 import requests
 import telegram
 from google.oauth2 import service_account
+from gspread import WorksheetNotFound
 
 # Telegram Bot Configuration
 bot_token = 'REDACTED_BOT_TOKEN'
@@ -73,14 +74,10 @@ def write_to_google_sheet(data: List[Dict]) -> None:
 
     # https://docs.google.com/spreadsheets/d/1ue2BdVIvbVykhnDYKHvMqblGUwT7R79PCEScIbq_8Qg/edit#gid=0
     s_id = "1ue2BdVIvbVykhnDYKHvMqblGUwT7R79PCEScIbq_8Qg"  # Gda Bot
-    sheet_name = "Sheet1"
     spreadsheet = client.open_by_key(s_id)
-    sheet = spreadsheet.worksheet(sheet_name)
-    # sheet.clear()
 
     # Create headers from the keys of the first dictionary
     headers = list(data[0].keys())
-    # sheet.append_row(headers)
 
     # Prepare the data to be written
     rows = []
@@ -90,15 +87,22 @@ def write_to_google_sheet(data: List[Dict]) -> None:
             if key in item:
                 value = item[key]
                 if isinstance(value, datetime):
-                    value = value.strftime('%Y-%m-%dT%H:%M:%S%z')
+                    # value = value.strftime('%Y-%m-%dT%H:%M:%S%z')
+                    value = value.strftime('%H:%M:%S%z')
                 if isinstance(value, list):
-                    value = str(value)
+                    value = ' '.join(value)
                 row.append(value)
             else:
                 row.append('')
         rows.append(row)
 
-    # Write the data to the sheet
+    sheet_name = datetime.now().strftime('%Y-%m-%d')
+    try:
+        sheet = spreadsheet.worksheet(sheet_name)
+    except WorksheetNotFound:
+        sheet = spreadsheet.add_worksheet(sheet_name, cols=15, rows=10000)
+        sheet.append_row(headers)
+
     sheet.append_rows(rows)
 
 
@@ -131,21 +135,27 @@ async def monitor_slots():
             now = datetime.now()
 
             for slot in slots:
-                time_response = requests.get(time_slots.format(date=slot["date"]), headers=request_headers, verify=False)
+                time_response = requests.get(time_slots.format(date=slot["date"]), headers=request_headers,
+                                             verify=False)
                 if time_response.text != '[]':
                     slot_times = await format_time_slots(time_response.text)
                     result[slot["date"]] = slot_times
 
                     append_to_sheet.append(dict(
-                        date=now,
-                        slot=slot["date"],
-                        time=slot_times,
+                        found_at=now,
+                        date=slot["date"],
+                        slots=slot_times,
                     ))
                 time.sleep(10)  # seconds
 
-            message = f'Znalazłem wolny termin!\n' \
-                      f'https://rezerwacja.gdansk.uw.gov.pl:8445/qmaticwebbooking/#/\n' \
-                      f'{json.dumps(result, indent=4)}'
+            slots_str = ""
+            for date, times in result.items():
+                time_string = ' '.join(times)
+                slots_str += f"{date}: {time_string}\n"
+
+            message = f'Znalazłem wolne terminy!\n' \
+                      f'{slots_str}' \
+                      f'https://rezerwacja.gdansk.uw.gov.pl:8445/qmaticwebbooking/#/'
 
             await bot.send_message(chat_id=chat_id, text=message)
             write_to_google_sheet(append_to_sheet)
