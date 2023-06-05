@@ -51,19 +51,23 @@ user_agents = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36',
 ]
 
-request_headers = {
-    'User-Agent': random.choice(user_agents),
-    'Accept': 'application/json, text/plain, */*',
-    'Accept-Language': 'en-US,en;q=0.5',
-    'Accept-Encoding': 'gzip, deflate, br',
-    'Referer': 'https://rezerwacja.gdansk.uw.gov.pl:8445/qmaticwebbooking/',
-    'DNT': '1',
-    'Connection': 'keep-alive',
-    'Sec-Fetch-Dest': 'empty',
-    'Sec-Fetch-Mode': 'cors',
-    'Sec-Fetch-Site': 'same-origin',
-    'Sec-GPC': '1',
-}
+
+def get_request_headers():
+    res = {
+        'User-Agent': random.choice(user_agents),
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Referer': 'https://rezerwacja.gdansk.uw.gov.pl:8445/qmaticwebbooking/',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-origin',
+        'Sec-GPC': '1',
+    }
+
+    return res
 
 
 def write_to_google_sheet(data: List[Dict]) -> None:
@@ -119,7 +123,7 @@ async def monitor_slots():
             message = f"Raport: zrobiłem już {request_counter} zapytań"
             await bot.send_message(chat_id=chat_id, text=message)
 
-        response = requests.get(url, headers=request_headers, verify=False)
+        response = requests.get(url, headers=get_request_headers(), verify=False)
         request_counter += 1
         free_time_slots_found = response.text != '[]'
 
