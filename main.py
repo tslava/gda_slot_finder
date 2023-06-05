@@ -154,13 +154,12 @@ async def monitor_slots():
                 slots_str += f"{date}: {time_string}\n"
 
             message = f'Znalazłem wolne terminy!\n' \
-                      f'{slots_str}' \
-                      f'https://rezerwacja.gdansk.uw.gov.pl:8445/qmaticwebbooking/#/'
+                      f'{slots_str}'
 
             await bot.send_message(chat_id=chat_id, text=message)
             write_to_google_sheet(append_to_sheet)
 
-        minutes = 5
+        minutes = 10
         time.sleep(minutes * 60)  # seconds
 
 
