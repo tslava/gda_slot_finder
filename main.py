@@ -72,7 +72,9 @@ def get_request_headers():
 
 def write_to_google_sheet(data: List[Dict]) -> None:
     scope = ['https://www.googleapis.com/auth/spreadsheets']
-    credentials = service_account.Credentials.from_service_account_file('google-credentials.json')
+    credentials = service_account.Credentials.from_service_account_file(
+        '/Users/ts/projects/sandbox/gda_slot_finder/google-credentials.json'
+    )
     scoped_credentials = credentials.with_scopes(scope)
     client = gspread.authorize(scoped_credentials)
 
