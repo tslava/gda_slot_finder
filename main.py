@@ -139,7 +139,7 @@ async def monitor_slots():
             now = datetime.now()
 
             for slot in slots:
-                time_response = requests.get(time_slots.format(date=slot["date"]), headers=request_headers,
+                time_response = requests.get(time_slots.format(date=slot["date"]), headers=get_request_headers(),
                                              verify=False)
                 if time_response.text != '[]':
                     slot_times = await format_time_slots(time_response.text)
