@@ -12,6 +12,9 @@ import telegram
 from google.oauth2 import service_account
 from gspread import WorksheetNotFound
 
+from settings import GOOGLE_TABLE_ID_FOR_CITIZENSHIP_DATA
+from utils import write_to_google_sheet
+
 # Telegram Bot Configuration
 bot_token = 'REDACTED_BOT_TOKEN'
 chat_id = CHAT_ID
@@ -70,48 +73,6 @@ def get_request_headers():
     return res
 
 
-def write_to_google_sheet(data: List[Dict]) -> None:
-    scope = ['https://www.googleapis.com/auth/spreadsheets']
-    credentials = service_account.Credentials.from_service_account_file(
-        '/Users/ts/projects/sandbox/gda_slot_finder/google-credentials.json'
-    )
-    scoped_credentials = credentials.with_scopes(scope)
-    client = gspread.authorize(scoped_credentials)
-
-    # https://docs.google.com/spreadsheets/d/1ue2BdVIvbVykhnDYKHvMqblGUwT7R79PCEScIbq_8Qg/edit#gid=0
-    s_id = "1ue2BdVIvbVykhnDYKHvMqblGUwT7R79PCEScIbq_8Qg"  # Gda Bot
-    spreadsheet = client.open_by_key(s_id)
-
-    # Create headers from the keys of the first dictionary
-    headers = list(data[0].keys())
-
-    # Prepare the data to be written
-    rows = []
-    for item in data:
-        row = []
-        for key in headers:
-            if key in item:
-                value = item[key]
-                if isinstance(value, datetime):
-                    # value = value.strftime('%Y-%m-%dT%H:%M:%S%z')
-                    value = value.strftime('%H:%M:%S%z')
-                if isinstance(value, list):
-                    value = ' '.join(value)
-                row.append(value)
-            else:
-                row.append('')
-        rows.append(row)
-
-    sheet_name = datetime.now().strftime('%Y-%m-%d')
-    try:
-        sheet = spreadsheet.worksheet(sheet_name)
-    except WorksheetNotFound:
-        sheet = spreadsheet.add_worksheet(sheet_name, cols=15, rows=10000)
-        sheet.append_row(headers)
-
-    sheet.append_rows(rows)
-
-
 async def format_time_slots(slots: str) -> List[str]:
     # [{"date":"2023-06-15","time":"09:10"},{"date":"2023-06-15","time":"10:20"}]
     time_slots = json.loads(slots)
@@ -163,7 +124,7 @@ async def monitor_slots():
                       f'{slots_str}'
 
             await bot.send_message(chat_id=chat_id, text=message)
-            write_to_google_sheet(append_to_sheet)
+            write_to_google_sheet(data=append_to_sheet, table_doc_id=GOOGLE_TABLE_ID_FOR_CITIZENSHIP_DATA)
 
         minutes = 10
         time.sleep(minutes * 60)  # seconds
