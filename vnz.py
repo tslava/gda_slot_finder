@@ -90,7 +90,7 @@ async def monitor_slots():
             message = f"json.decoder.JSONDecodeError. Response was: {response_dates_raw}"
             print(message)
             await bot.send_message(chat_id=chat_id, text=message)
-            raise
+            continue
         else:
             dates_raw = response_dates["DATES"]
             days_period = 90
