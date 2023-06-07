@@ -84,49 +84,56 @@ async def monitor_slots():
         response_dates_raw = requests.get(url_dates, headers=get_request_headers(), verify=False)
         request_counter += 1
 
-        response_dates = json.loads(response_dates_raw.text)
-        dates_raw = response_dates["DATES"]
-        days_period = 90
-        free_time_slots = await is_free_time_slots(days=days_period, dates=dates_raw)
-
-        if free_time_slots:
-            slots_str = ""
-            append_to_sheet = []
-            now = datetime.now()
-
-            free_time_slots = free_time_slots[:5]  # изменить если надо больше дат где есть свободные слоты
-
-            for date in free_time_slots:
-                # date format = 22/09/2023 => 2023-09-22
-                time.sleep(5)
-                print('Free time slots available! Visit the website now.')
-
-                date_obj = datetime.strptime(date, "%d/%m/%Y")
-                transformed_date = date_obj.strftime("%Y-%m-%d")
-                url_times = url_times_base.format(date=transformed_date)
-
-                response_times_raw = requests.get(url_times, headers=get_request_headers(), verify=False)
-                response_times = json.loads(response_times_raw.text)
-
-                times = response_times["TIMES"]
-                if times:
-                    response_times_formatted = await format_time_slots(times)
-                    slots_str += f"{transformed_date}: {response_times_formatted}\n"
-
-                    append_to_sheet.append(dict(
-                        found_at=now,
-                        date=transformed_date,
-                        slots=response_times_formatted,
-                    ))
-
-            message = f'Znalazłem wolne terminy VNZ w ciągu {days_period} dni!\n' \
-                      f'Uzupełnienie lub odbiór dokumentów:\n' \
-                      f'{slots_str}'
-
+        try:
+            response_dates = json.loads(response_dates_raw.text)
+        except json.decoder.JSONDecodeError:
+            message = f"json.decoder.JSONDecodeError. Response was: {response_dates_raw}"
+            print(message)
             await bot.send_message(chat_id=chat_id, text=message)
-            write_to_google_sheet(data=append_to_sheet, table_doc_id=GOOGLE_TABLE_ID_FOR_GET_VNZ_DATA)
+            raise
+        else:
+            dates_raw = response_dates["DATES"]
+            days_period = 90
+            free_time_slots = await is_free_time_slots(days=days_period, dates=dates_raw)
 
-            print(f"date req count: {request_counter}")
+            if free_time_slots:
+                slots_str = ""
+                append_to_sheet = []
+                now = datetime.now()
+
+                free_time_slots = free_time_slots[:5]  # изменить если надо больше дат где есть свободные слоты
+
+                for date in free_time_slots:
+                    # date format = 22/09/2023 => 2023-09-22
+                    time.sleep(5)
+                    print('Free time slots available! Visit the website now.')
+
+                    date_obj = datetime.strptime(date, "%d/%m/%Y")
+                    transformed_date = date_obj.strftime("%Y-%m-%d")
+                    url_times = url_times_base.format(date=transformed_date)
+
+                    response_times_raw = requests.get(url_times, headers=get_request_headers(), verify=False)
+                    response_times = json.loads(response_times_raw.text)
+
+                    times = response_times["TIMES"]
+                    if times:
+                        response_times_formatted = await format_time_slots(times)
+                        slots_str += f"{transformed_date}: {response_times_formatted}\n"
+
+                        append_to_sheet.append(dict(
+                            found_at=now,
+                            date=transformed_date,
+                            slots=response_times_formatted,
+                        ))
+
+                message = f'Znalazłem wolne terminy VNZ w ciągu {days_period} dni!\n' \
+                          f'Uzupełnienie lub odbiór dokumentów:\n' \
+                          f'{slots_str}'
+
+                await bot.send_message(chat_id=chat_id, text=message)
+                write_to_google_sheet(data=append_to_sheet, table_doc_id=GOOGLE_TABLE_ID_FOR_GET_VNZ_DATA)
+
+                print(f"date req count: {request_counter}")
 
         minutes = 10
         time.sleep(minutes * 60)  # seconds
