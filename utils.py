@@ -14,7 +14,12 @@ def write_to_google_sheet(data: List[Dict], table_doc_id: str) -> None:
     credentials = service_account.Credentials.from_service_account_file(GOOGLE_CREDENTIALS_FILE_PATH)
     scoped_credentials = credentials.with_scopes(scope)
     client = gspread.authorize(scoped_credentials)
-    spreadsheet = client.open_by_key(table_doc_id)
+
+    try:
+        spreadsheet = client.open_by_key(table_doc_id)
+    except gspread.exceptions.APIError:
+        print("gspread.exceptions.APIError - return None")
+        return None
 
     # Create headers from the keys of the first dictionary
     headers = list(data[0].keys())
