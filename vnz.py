@@ -112,7 +112,12 @@ async def monitor_slots():
                     transformed_date = date_obj.strftime("%Y-%m-%d")
                     url_times = url_times_base.format(date=transformed_date)
 
-                    response_times_raw = requests.get(url_times, headers=get_request_headers(), verify=False)
+                    try:
+                        response_times_raw = requests.get(url_times, headers=get_request_headers(), verify=False)
+                    except requests.exceptions.ConnectionError:
+                        print("ConnectionError...continue")
+                        continue
+
                     response_times = json.loads(response_times_raw.text)
 
                     times = response_times["TIMES"]
