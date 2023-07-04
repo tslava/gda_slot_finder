@@ -71,29 +71,39 @@ async def format_time_slots(data: list) -> str:
 
 
 async def monitor_slots():
+    sleep_minutes = 10  # количество минут между проверками наличия слотов
+    days_period = 90  # период в будущем, в котором ищем слоты
+
+    sleep_seconds = sleep_minutes * 60
     request_counter = 0
+
     while True:
         if request_counter % 5 == 0:
             if request_counter == 0:
                 message = f"Startuję VNZ skanner"
             else:
                 message = f"Raport: zrobiłem już {request_counter} zapytań VNZ"
-            await bot.send_message(chat_id=chat_id, text=message)
+            await bot.send_message(chat_id=chat_id, text=message, disable_notification=True)
 
         url_dates = url_dates_base.format(lang=random.choice(langs))
         response_dates_raw = requests.get(url_dates, headers=get_request_headers(), verify=False)
+
+        if request_counter != 0:
+            time.sleep(sleep_seconds)
+
         request_counter += 1
 
         try:
             response_dates = json.loads(response_dates_raw.text)
         except json.decoder.JSONDecodeError:
-            message = f"json.decoder.JSONDecodeError. Response was: {response_dates_raw}"
+            message = f"json.decoder.JSONDecodeError. " \
+                      f"Response was: {response_dates_raw}. " \
+                      f"Waiting for {sleep_minutes} minutes"
             print(message)
-            await bot.send_message(chat_id=chat_id, text=message)
+            await bot.send_message(chat_id=chat_id, text=message, disable_notification=True)
             continue
         else:
             dates_raw = response_dates["DATES"]
-            days_period = 90
             free_time_slots = await is_free_time_slots(days=days_period, dates=dates_raw)
 
             if free_time_slots:
@@ -115,7 +125,7 @@ async def monitor_slots():
                     try:
                         response_times_raw = requests.get(url_times, headers=get_request_headers(), verify=False)
                     except requests.exceptions.ConnectionError:
-                        print("ConnectionError...continue")
+                        print(f"ConnectionError... Waiting for {sleep_minutes} minutes")
                         continue
 
                     response_times = json.loads(response_times_raw.text)
@@ -131,17 +141,15 @@ async def monitor_slots():
                             slots=response_times_formatted,
                         ))
 
-                message = f'Znalazłem wolne terminy VNZ w ciągu {days_period} dni!\n' \
-                          f'Uzupełnienie lub odbiór dokumentów:\n' \
+                message = f'Uzupełnienie lub odbiór dokumentów VNZ:\n' \
                           f'{slots_str}'
 
                 await bot.send_message(chat_id=chat_id, text=message)
                 write_to_google_sheet(data=append_to_sheet, table_doc_id=GOOGLE_TABLE_ID_FOR_GET_VNZ_DATA)
 
                 print(f"date req count: {request_counter}")
-
-        minutes = 10
-        time.sleep(minutes * 60)  # seconds
+            else:
+                print(f"No free time slots, date req count: {request_counter}")
 
 
 if __name__ == '__main__':
