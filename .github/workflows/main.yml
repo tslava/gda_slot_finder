@@ -3,7 +3,7 @@ name: Deploy to Hetzner VPC
 on:
   push:
     branches:
-      - main
+      - master
 
 jobs:
   deploy:
