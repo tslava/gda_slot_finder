@@ -3,14 +3,10 @@ import json
 import random
 import time
 from datetime import datetime
-from typing import Dict
 from typing import List
 
-import gspread
 import requests
 import telegram
-from google.oauth2 import service_account
-from gspread import WorksheetNotFound
 
 from settings import GOOGLE_TABLE_ID_FOR_CITIZENSHIP_DATA
 from utils import write_to_google_sheet
@@ -20,11 +16,17 @@ bot_token = 'REDACTED_BOT_TOKEN'
 chat_id = CHAT_ID
 bot = telegram.Bot(token=bot_token)
 
-# 1 взрослый
+# 1 взрослый, przyjmowanie wniosków paszportowych
+# url = 'https://rezerwacja.gdansk.uw.gov.pl:8445/qmaticwebbooking/rest/schedule/branches/' \
+#       '1cf1e3e60eeb96dae2bb572487249bd48cc5bed0024960eaee0c893ce4918569/dates;' \
+#       'servicePublicId=4fe2df1ac02036b7096beb9b80b8e0e8924c3c282eb992fc83b5a3977ddd20b1;' \
+#       'customSlotLength=10'
+
+# składanie wniosków i dokumentacji do wniosków...
 url = 'https://rezerwacja.gdansk.uw.gov.pl:8445/qmaticwebbooking/rest/schedule/branches/' \
       '1cf1e3e60eeb96dae2bb572487249bd48cc5bed0024960eaee0c893ce4918569/dates;' \
-      'servicePublicId=4fe2df1ac02036b7096beb9b80b8e0e8924c3c282eb992fc83b5a3977ddd20b1;' \
-      'customSlotLength=10'
+      'servicePublicId=2c5251d564aaf0b09c2a39d69cf7ed4cb1e142ab3a501b4b688e1e7c2d80b8e0;' \
+      'customSlotLength=40'
 # [{"date":"2023-06-02"},{"date":"2023-06-15"}]
 
 # +1 ребенок
@@ -43,6 +45,13 @@ time_slots = 'https://rezerwacja.gdansk.uw.gov.pl:8445/qmaticwebbooking/rest/sch
              '1cf1e3e60eeb96dae2bb572487249bd48cc5bed0024960eaee0c893ce4918569/dates/{date}/times;' \
              'servicePublicId=4fe2df1ac02036b7096beb9b80b8e0e8924c3c282eb992fc83b5a3977ddd20b1;' \
              'customSlotLength=10'
+
+# składanie wniosków i dokumentacji do wniosków... - время
+time_slots_2 = 'https://rezerwacja.gdansk.uw.gov.pl:8445/qmaticwebbooking/rest/schedule/branches/' \
+               '1cf1e3e60eeb96dae2bb572487249bd48cc5bed0024960eaee0c893ce4918569/dates/{date}/times;' \
+               'servicePublicId=2c5251d564aaf0b09c2a39d69cf7ed4cb1e142ab3a501b4b688e1e7c2d80b8e0;' \
+               'customSlotLength=40'
+
 '''response example
 [{"date":"2023-06-15","time":"09:10"},{"date":"2023-06-15","time":"10:20"},{"date":"2023-06-15","time":"10:30"},{"date":"2023-06-15","time":"10:40"},{"date":"2023-06-15","time":"10:50"},{"date":"2023-06-15","time":"11:10"},{"date":"2023-06-15","time":"11:20"},{"date":"2023-06-15","time":"11:30"},{"date":"2023-06-15","time":"11:40"},{"date":"2023-06-15","time":"11:50"},{"date":"2023-06-15","time":"12:00"},{"date":"2023-06-15","time":"12:10"},{"date":"2023-06-15","time":"12:20"},{"date":"2023-06-15","time":"12:30"},{"date":"2023-06-15","time":"12:40"},{"date":"2023-06-15","time":"12:50"},{"date":"2023-06-15","time":"13:00"},{"date":"2023-06-15","time":"13:10"},{"date":"2023-06-15","time":"13:20"},{"date":"2023-06-15","time":"13:30"}]'''
 
@@ -82,7 +91,7 @@ async def format_time_slots(slots: str) -> List[str]:
 async def monitor_slots():
     request_counter = 0
     while True:
-        if request_counter % 5 == 0:
+        if request_counter % 10 == 0:
             message = f"Raport: zrobiłem już {request_counter} zapytań"
             await bot.send_message(chat_id=chat_id, text=message)
 
@@ -94,6 +103,7 @@ async def monitor_slots():
         # free_time_slots_found = True
 
         if free_time_slots_found:
+            # await bot.send_message(chat_id=chat_id, text=f'Znalazłem wolne terminy: raw response: {response.text}')
             append_to_sheet = []
 
             print('Free time slots available! Visit the website now.')
@@ -102,7 +112,7 @@ async def monitor_slots():
             now = datetime.now()
 
             for slot in slots:
-                time_response = requests.get(time_slots.format(date=slot["date"]), headers=get_request_headers(),
+                time_response = requests.get(time_slots_2.format(date=slot["date"]), headers=get_request_headers(),
                                              verify=False)
                 if time_response.text != '[]':
                     slot_times = await format_time_slots(time_response.text)
@@ -113,7 +123,7 @@ async def monitor_slots():
                         date=slot["date"],
                         slots=slot_times,
                     ))
-                time.sleep(10)  # seconds
+                time.sleep(5)  # seconds
 
             slots_str = ""
             for date, times in result.items():
@@ -124,9 +134,10 @@ async def monitor_slots():
                       f'{slots_str}'
 
             await bot.send_message(chat_id=chat_id, text=message)
-            write_to_google_sheet(data=append_to_sheet, table_doc_id=GOOGLE_TABLE_ID_FOR_CITIZENSHIP_DATA)
+            if append_to_sheet:
+                write_to_google_sheet(data=append_to_sheet, table_doc_id=GOOGLE_TABLE_ID_FOR_CITIZENSHIP_DATA)
 
-        minutes = 10
+        minutes = 5
         time.sleep(minutes * 60)  # seconds
 
 

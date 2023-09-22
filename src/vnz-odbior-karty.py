@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import json
 import random
 import time
@@ -37,14 +38,18 @@ def get_request_headers():
         'User-Agent': random.choice(user_agents),
         'Accept': 'application/json, text/plain, */*',
         'Accept-Language': 'en-US,en;q=0.5',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Referer': 'https://rezerwacja.gdansk.uw.gov.pl:8445/qmaticwebbooking/',
-        'DNT': '1',
+        # 'Accept-Encoding': 'gzip, deflate, br',
+        # 'DNT': '1',
         'Connection': 'keep-alive',
-        'Sec-Fetch-Dest': 'empty',
-        'Sec-Fetch-Mode': 'cors',
-        'Sec-Fetch-Site': 'same-origin',
-        'Sec-GPC': '1',
+        # 'Sec-Fetch-Dest': 'empty',
+        # 'Sec-Fetch-Mode': 'cors',
+        # 'Sec-Fetch-Site': 'same-origin',
+        # 'Sec-GPC': '1',
+        'Host': 'kolejkagdansk.ajhmedia.pl',
+        # 'Alt-Used': 'kolejkagdansk.ajhmedia.pl',
+        'Referer': 'https://kolejkagdansk.ajhmedia.pl/branch/5',
+        # 'TE': 'trailers',
+        'Cookie': 'PHPSESSID=e4fddb9cbaad7f821d2e5fcf60da2023'
     }
 
     return request_headers
@@ -71,8 +76,8 @@ async def format_time_slots(data: list) -> str:
 
 
 async def monitor_slots():
-    sleep_minutes = 10  # количество минут между проверками наличия слотов
-    days_period = 90  # период в будущем, в котором ищем слоты
+    sleep_minutes = 5  # количество минут между проверками наличия слотов
+    days_period = 30  # период в будущем, в котором ищем слоты
 
     sleep_seconds = sleep_minutes * 60
     request_counter = 0
@@ -95,7 +100,7 @@ async def monitor_slots():
 
         try:
             response_dates = json.loads(response_dates_raw.text)
-        except json.decoder.JSONDecodeError:
+        except json.decoder.JSONDecodeError as ex:
             message = f"json.decoder.JSONDecodeError. " \
                       f"Response was: {response_dates_raw}. " \
                       f"Waiting for {sleep_minutes} minutes"
@@ -141,11 +146,13 @@ async def monitor_slots():
                             slots=response_times_formatted,
                         ))
 
-                message = f'Uzupełnienie lub odbiór dokumentów VNZ:\n' \
-                          f'{slots_str}'
+                if slots_str:
+                    message = f'Uzupełnienie lub odbiór dokumentów VNZ:\n' \
+                              f'{slots_str}'
 
-                await bot.send_message(chat_id=chat_id, text=message)
-                write_to_google_sheet(data=append_to_sheet, table_doc_id=GOOGLE_TABLE_ID_FOR_GET_VNZ_DATA)
+                    await bot.send_message(chat_id=chat_id, text=message)
+                    if append_to_sheet:
+                        write_to_google_sheet(data=append_to_sheet, table_doc_id=GOOGLE_TABLE_ID_FOR_GET_VNZ_DATA)
 
                 print(f"date req count: {request_counter}")
             else:
