@@ -91,7 +91,7 @@ async def format_time_slots(slots: str) -> List[str]:
 async def monitor_slots():
     request_counter = 0
     while True:
-        if request_counter % 10 == 0:
+        if request_counter % 12 == 0:
             message = f"Raport: zrobiłem już {request_counter} zapytań"
             await bot.send_message(chat_id=chat_id, text=message)
 
