@@ -90,10 +90,12 @@ async def format_time_slots(slots: str) -> List[str]:
 
 async def monitor_slots():
     request_counter = 0
+    previous_slots: str = ''
     while True:
         if request_counter % 12 == 0:
             message = f"Raport: zrobiłem już {request_counter} zapytań"
             await bot.send_message(chat_id=chat_id, text=message)
+            previous_slots: str = ''  # если слот появился, исчез, и потом снова появился
 
         response = requests.get(url, headers=get_request_headers(), verify=False)
         request_counter += 1
@@ -130,14 +132,18 @@ async def monitor_slots():
                 time_string = ' '.join(times)
                 slots_str += f"{date}: {time_string}\n"
 
-            message = f'Znalazłem wolne terminy!\n' \
-                      f'{slots_str}'
+            if slots_str != previous_slots:
+                message = f'Znalazłem wolne terminy!\n' \
+                          f'{slots_str}'
+                await bot.send_message(chat_id=chat_id, text=message)
+                previous_slots = slots_str
+            else:
+                print('Slots not changed')
 
-            await bot.send_message(chat_id=chat_id, text=message)
             if append_to_sheet:
                 write_to_google_sheet(data=append_to_sheet, table_doc_id=GOOGLE_TABLE_ID_FOR_CITIZENSHIP_DATA)
 
-        minutes = 5
+        minutes = 1
         time.sleep(minutes * 60)  # seconds
 
 
