@@ -21,8 +21,13 @@ bot = telegram.Bot(token=bot_token)
 
 langs = ["pl", "ru", "en"]
 
-url_dates_base = "https://kolejkagdansk.ajhmedia.pl/admin/API/date/5/307/{lang}"
-url_times_base = "https://kolejkagdansk.ajhmedia.pl/admin/API/time/5/45/{date}"  # date format: 2023-09-22
+# odbiór karty VNZ - ссылки могут быть другими потому что поменялся домен
+# url_dates_base = "https://kolejkagdansk.ajhmedia.pl/admin/API/date/5/307/{lang}"
+# url_times_base = "https://kolejkagdansk.ajhmedia.pl/admin/API/time/5/45/{date}"  # date format: 2023-09-22
+
+# skládanie wniosków o VNZ
+url_dates_base = "https://kolejka.gdansk.uw.gov.pl/admin/API/date/5/304/{lang}"
+url_times_base = "https://kolejka.gdansk.uw.gov.pl/admin/API/time/5/3/{date}"  # date format: 2023-09-22
 
 user_agents = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36',
@@ -77,7 +82,7 @@ async def format_time_slots(data: list) -> str:
 
 async def monitor_slots():
     sleep_minutes = 5  # количество минут между проверками наличия слотов
-    days_period = 30  # период в будущем, в котором ищем слоты
+    days_period = 180  # период в будущем, в котором ищем слоты
 
     sleep_seconds = sleep_minutes * 60
     request_counter = 0
@@ -91,7 +96,14 @@ async def monitor_slots():
             await bot.send_message(chat_id=chat_id, text=message, disable_notification=True)
 
         url_dates = url_dates_base.format(lang=random.choice(langs))
-        response_dates_raw = requests.get(url_dates, headers=get_request_headers(), verify=False)
+        try:
+            response_dates_raw = requests.get(url_dates, headers={}, verify=False)
+        except Exception as ex:
+            message = f"Exception: {ex}. " \
+                      f"Waiting for {sleep_minutes} minutes"
+            print(message)
+            await bot.send_message(chat_id=chat_id, text=message, disable_notification=True)
+            continue
 
         if request_counter != 0:
             time.sleep(sleep_seconds)
@@ -112,6 +124,8 @@ async def monitor_slots():
             free_time_slots = await is_free_time_slots(days=days_period, dates=dates_raw)
 
             if free_time_slots:
+                # await bot.send_message(chat_id=chat_id, text=f'Free time slots available: {free_time_slots}')
+
                 slots_str = ""
                 append_to_sheet = []
                 now = datetime.now()
@@ -128,7 +142,7 @@ async def monitor_slots():
                     url_times = url_times_base.format(date=transformed_date)
 
                     try:
-                        response_times_raw = requests.get(url_times, headers=get_request_headers(), verify=False)
+                        response_times_raw = requests.get(url_times, headers={}, verify=False)
                     except requests.exceptions.ConnectionError:
                         print(f"ConnectionError... Waiting for {sleep_minutes} minutes")
                         continue
@@ -156,6 +170,7 @@ async def monitor_slots():
 
                 print(f"date req count: {request_counter}")
             else:
+                await bot.send_message(chat_id=chat_id, text=f"No free time slots, date req count: {request_counter}")
                 print(f"No free time slots, date req count: {request_counter}")
 
 
