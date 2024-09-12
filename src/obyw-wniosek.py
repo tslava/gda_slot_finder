@@ -92,9 +92,13 @@ async def monitor_slots():
     request_counter = 0
     previous_slots: str = ''
     while True:
+        if request_counter == 0:
+            message = f"Startuję OBYWATELSTWO skanner"
+            await bot.send_message(chat_id=chat_id, text=message)
+
         if request_counter % 12 == 0:
             message = f"Raport: zrobiłem już {request_counter} zapytań"
-            await bot.send_message(chat_id=chat_id, text=message)
+            # await bot.send_message(chat_id=chat_id, text=message)
             previous_slots: str = ''  # если слот появился, исчез, и потом снова появился
 
         response = requests.get(url, headers=get_request_headers(), verify=False)
