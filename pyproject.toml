@@ -1,17 +1,17 @@
 [tool.poetry]
 name = "gda-slot-finder"
 version = "0.1.0"
-description = ""
-authors = ["vtsiunchik <11209369+tslava@users.noreply.github.com>"]
+description = "Monitor and alert for available appointment slots at Gdańsk government offices"
+authors = ["Your Name <your.email@example.com>"]
 readme = "README.md"
-packages = [{include = "gda_slot_finder"}]
+packages = [{include = "src"}]
 
 [tool.poetry.dependencies]
 python = "^3.9"
 requests = "^2.31.0"
 python-telegram-bot = "^20.3"
 gspread = "^5.9.0"
-selenium = "^4.12.0"
+python-dotenv = "^1.0.0"
 
 
 [build-system]

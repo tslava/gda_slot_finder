@@ -1,5 +1,4 @@
 import asyncio
-import base64
 import json
 import random
 import time
@@ -11,23 +10,19 @@ from typing import Optional
 import requests
 import telegram
 
-from settings import GOOGLE_TABLE_ID_FOR_GET_VNZ_DATA
+from settings import (
+    GOOGLE_TABLE_ID_VNZ,
+    TELEGRAM_BOT_TOKEN,
+    TELEGRAM_CHAT_ID_VNZ,
+    VNZ_DATES_URL_BASE,
+    VNZ_TIMES_URL_BASE,
+)
 from utils import write_to_google_sheet
 
 # Telegram Bot Configuration
-bot_token = 'REDACTED_BOT_TOKEN'
-chat_id = CHAT_ID
-bot = telegram.Bot(token=bot_token)
+bot = telegram.Bot(token=TELEGRAM_BOT_TOKEN)
 
 langs = ["pl", "ru", "en"]
-
-# odbiór karty VNZ - ссылки могут быть другими потому что поменялся домен
-# url_dates_base = "https://kolejkagdansk.ajhmedia.pl/admin/API/date/5/307/{lang}"
-# url_times_base = "https://kolejkagdansk.ajhmedia.pl/admin/API/time/5/45/{date}"  # date format: 2023-09-22
-
-# skládanie wniosków o VNZ
-url_dates_base = "https://kolejka.gdansk.uw.gov.pl/admin/API/date/5/304/{lang}"
-url_times_base = "https://kolejka.gdansk.uw.gov.pl/admin/API/time/5/3/{date}"  # date format: 2023-09-22
 
 user_agents = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36',
@@ -43,18 +38,7 @@ def get_request_headers():
         'User-Agent': random.choice(user_agents),
         'Accept': 'application/json, text/plain, */*',
         'Accept-Language': 'en-US,en;q=0.5',
-        # 'Accept-Encoding': 'gzip, deflate, br',
-        # 'DNT': '1',
         'Connection': 'keep-alive',
-        # 'Sec-Fetch-Dest': 'empty',
-        # 'Sec-Fetch-Mode': 'cors',
-        # 'Sec-Fetch-Site': 'same-origin',
-        # 'Sec-GPC': '1',
-        'Host': 'kolejkagdansk.ajhmedia.pl',
-        # 'Alt-Used': 'kolejkagdansk.ajhmedia.pl',
-        'Referer': 'https://kolejkagdansk.ajhmedia.pl/branch/5',
-        # 'TE': 'trailers',
-        'Cookie': 'PHPSESSID=e4fddb9cbaad7f821d2e5fcf60da2023'
     }
 
     return request_headers
@@ -74,15 +58,14 @@ async def format_time_slots(data: list) -> str:
     for entry in data:
         time = entry["time"]
         time_slots.append(f"{time[:5]}")
-        # time_slots.append(f"{time[:5]} - {slots}")
     result = " ".join(time_slots)
 
     return result
 
 
 async def monitor_slots():
-    sleep_minutes = 5  # количество минут между проверками наличия слотов
-    days_period = 180  # период в будущем, в котором ищем слоты
+    sleep_minutes = 1
+    days_period = 180
 
     sleep_seconds = sleep_minutes * 60
     request_counter = 0
@@ -91,18 +74,16 @@ async def monitor_slots():
         if request_counter % 5 == 0:
             if request_counter == 0:
                 message = f"Startuję VNZ skanner"
-            else:
-                message = f"Raport: zrobiłem już {request_counter} zapytań VNZ"
-            await bot.send_message(chat_id=chat_id, text=message, disable_notification=True)
+                await bot.send_message(chat_id=TELEGRAM_CHAT_ID_VNZ, text=message, disable_notification=True)
 
-        url_dates = url_dates_base.format(lang=random.choice(langs))
+        url_dates = VNZ_DATES_URL_BASE.format(lang=random.choice(langs))
         try:
             response_dates_raw = requests.get(url_dates, headers={}, verify=False)
         except Exception as ex:
             message = f"Exception: {ex}. " \
                       f"Waiting for {sleep_minutes} minutes"
             print(message)
-            await bot.send_message(chat_id=chat_id, text=message, disable_notification=True)
+            await bot.send_message(chat_id=TELEGRAM_CHAT_ID_VNZ, text=message, disable_notification=True)
             continue
 
         if request_counter != 0:
@@ -117,29 +98,26 @@ async def monitor_slots():
                       f"Response was: {response_dates_raw}. " \
                       f"Waiting for {sleep_minutes} minutes"
             print(message)
-            await bot.send_message(chat_id=chat_id, text=message, disable_notification=True)
+            await bot.send_message(chat_id=TELEGRAM_CHAT_ID_VNZ, text=message, disable_notification=True)
             continue
         else:
             dates_raw = response_dates["DATES"]
             free_time_slots = await is_free_time_slots(days=days_period, dates=dates_raw)
 
             if free_time_slots:
-                # await bot.send_message(chat_id=chat_id, text=f'Free time slots available: {free_time_slots}')
-
                 slots_str = ""
                 append_to_sheet = []
                 now = datetime.now()
 
-                free_time_slots = free_time_slots[:5]  # изменить если надо больше дат где есть свободные слоты
+                free_time_slots = free_time_slots[:5]
 
                 for date in free_time_slots:
-                    # date format = 22/09/2023 => 2023-09-22
                     time.sleep(5)
                     print('Free time slots available! Visit the website now.')
 
                     date_obj = datetime.strptime(date, "%d/%m/%Y")
                     transformed_date = date_obj.strftime("%Y-%m-%d")
-                    url_times = url_times_base.format(date=transformed_date)
+                    url_times = VNZ_TIMES_URL_BASE.format(date=transformed_date)
 
                     try:
                         response_times_raw = requests.get(url_times, headers={}, verify=False)
@@ -164,14 +142,17 @@ async def monitor_slots():
                     message = f'Uzupełnienie lub odbiór dokumentów VNZ:\n' \
                               f'{slots_str}'
 
-                    await bot.send_message(chat_id=chat_id, text=message)
+                    await bot.send_message(chat_id=TELEGRAM_CHAT_ID_VNZ, text=message)
                     if append_to_sheet:
-                        write_to_google_sheet(data=append_to_sheet, table_doc_id=GOOGLE_TABLE_ID_FOR_GET_VNZ_DATA)
+                        write_to_google_sheet(data=append_to_sheet, table_doc_id=GOOGLE_TABLE_ID_VNZ)
 
                 print(f"date req count: {request_counter}")
+                now = datetime.now()
+                print(f"Curren time: {now}")
             else:
-                await bot.send_message(chat_id=chat_id, text=f"No free time slots, date req count: {request_counter}")
                 print(f"No free time slots, date req count: {request_counter}")
+                now = datetime.now()
+                print(f"Curren time: {now}")
 
 
 if __name__ == '__main__':
