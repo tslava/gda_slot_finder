@@ -1,6 +1,13 @@
 # GDA Slot Finder
 
-A Python application that monitors appointment availability and sends Telegram notifications when slots become available.
+**Get a Telegram ping the moment an appointment opens at the Pomeranian Voivodeship Office in Gdańsk.** Two small monitors poll the office's online booking system and report new slots for:
+
+- submitting a **Polish citizenship** application;
+- collecting a **residence card** (*karta pobytu*, "VNZ" in the code).
+
+Slots there are scarce and get taken within minutes, so polling beats refreshing the page by hand. It only reads the public schedule and never books anything for you.
+
+**Stack:** Python · requests · python-telegram-bot · Google Sheets API (optional log) · Docker · Poetry
 
 ## Features
 
@@ -20,8 +27,8 @@ A Python application that monitors appointment availability and sends Telegram n
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/gda-slot-finder.git
-   cd gda-slot-finder
+   git clone https://github.com/tslava/gda_slot_finder.git
+   cd gda_slot_finder
    ```
 
 2. Install dependencies:
@@ -131,4 +138,8 @@ gda_slot_finder/
 
 ## License
 
-MIT
+[MIT](LICENSE)
+
+---
+
+Built by [Wiaczeslaw Cyunczyk](https://cyunczyk.dev)
